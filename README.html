@@ -131,6 +131,22 @@
 <li>The online link is served by GitHub Pages from the <code>index.html</code> in the GitHub repo. Editing <code>index.html</code> in this folder does <strong>not</strong> change the online version. Upload/push the new <code>index.html</code> to the repo, and the link updates within a minute or two.</li>
 <li>Anyone using a copy you sent them keeps the old version until you send them the new file.</li>
 </ul>
+<h3>Pushing to GitHub (<code>git push</code>)</h3>
+<p>The repo belongs to the <strong>youstem</strong> account, so pushes from this folder must sign in as youstem, not gchang1020. This folder is already set up for that (<code>git remote -v</code> shows <code>https://youstem@github.com/youstem/ggrade.git</code>).</p>
+<p>GitHub doesn't accept the account password for <code>git push</code>. If <code>git push</code> asks for a password, or says "Invalid username or token", use a personal access token in place of the password:</p>
+<ol>
+<li>On github.com, signed in as <strong>youstem</strong>, go to your profile picture → <strong>Settings</strong> → <strong>Developer settings</strong> → <strong>Personal access tokens</strong> → <strong>Fine-grained tokens</strong> → <strong>Generate new token</strong>.</li>
+<li>Fill it in:<ul>
+<li>Name: <code>ggrade push</code></li>
+<li>Expiration: whatever you like, for example 1 year</li>
+<li>Repository access: <strong>Only select repositories</strong> → <code>youstem/ggrade</code></li>
+<li>Permissions → Repository permissions → <strong>Contents: Read and write</strong></li>
+</ul>
+</li>
+<li>Click <strong>Generate token</strong> and copy it. GitHub shows it only once.</li>
+<li>Run <code>git push</code>. At <code>Password for 'https://youstem@github.com':</code>, right-click to paste the token and press Enter. Nothing appears as you paste; that's normal.</li>
+</ol>
+<p>When the token expires, <code>git push</code> fails the same way again: generate a new token and repeat.</p>
 <p>If GitHub Pages ever needs to be turned on again (for this repo or a new one):</p>
 <ol>
 <li>In the repo, click <strong>Settings</strong>.</li>
@@ -140,3 +156,16 @@
 <li>Wait about a minute and refresh the Pages screen; it shows the live URL (currently <code>https://youstem.github.io/ggrade/</code>).</li>
 </ol>
 <p>Share that URL — not the repo page, which only shows the source code.</p>
+<h3>Keeping files out of GitHub (<code>.gitignore</code>)</h3>
+<p>To stop Git from uploading files that don't belong online (zips, backups, README pages), edit <code>.gitignore</code> in this folder and put the following in the file:</p>
+<pre><code>*.zip
+*.html
+*.bat
+.gitignore
+!index.html
+</code></pre>
+<ul>
+<li>Each line is a pattern: <code>*.zip</code> ignores every <code>.zip</code> file, and so on.</li>
+<li>The last line, <code>!index.html</code>, is an exception: it keeps <code>index.html</code> — the app itself, which GitHub Pages serves — from being ignored by <code>*.html</code>.</li>
+<li><code>.gitignore</code> only affects files Git isn't tracking yet. A file that was already committed (for example <code>README.html</code> or the <code>.bat</code> file) keeps being uploaded until you untrack it once, e.g. <code>git rm --cached README.html</code>, then commit and push. The file stays in this folder; it just leaves the repo.</li>
+</ul>

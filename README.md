@@ -127,6 +127,23 @@ Graders don't need this section.
 - The online link is served by GitHub Pages from the `index.html` in the GitHub repo. Editing `index.html` in this folder does **not** change the online version. Upload/push the new `index.html` to the repo, and the link updates within a minute or two.
 - Anyone using a copy you sent them keeps the old version until you send them the new file.
 
+### Pushing to GitHub (`git push`)
+
+The repo belongs to the **youstem** account, so pushes from this folder must sign in as youstem, not gchang1020. This folder is already set up for that (`git remote -v` shows `https://youstem@github.com/youstem/ggrade.git`).
+
+GitHub doesn't accept the account password for `git push`. If `git push` asks for a password, or says "Invalid username or token", use a personal access token in place of the password:
+
+1. On github.com, signed in as **youstem**, go to your profile picture → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+2. Fill it in:
+    - Name: `ggrade push`
+    - Expiration: whatever you like, for example 1 year
+    - Repository access: **Only select repositories** → `youstem/ggrade`
+    - Permissions → Repository permissions → **Contents: Read and write**
+3. Click **Generate token** and copy it. GitHub shows it only once.
+4. Run `git push`. At `Password for 'https://youstem@github.com':`, right-click to paste the token and press Enter. Nothing appears as you paste; that's normal.
+
+When the token expires, `git push` fails the same way again: generate a new token and repeat.
+
 If GitHub Pages ever needs to be turned on again (for this repo or a new one):
 
 1. In the repo, click **Settings**.
@@ -136,3 +153,19 @@ If GitHub Pages ever needs to be turned on again (for this repo or a new one):
 5. Wait about a minute and refresh the Pages screen; it shows the live URL (currently `https://youstem.github.io/ggrade/`).
 
 Share that URL — not the repo page, which only shows the source code.
+
+### Keeping files out of GitHub (`.gitignore`)
+
+To stop Git from uploading files that don't belong online (zips, backups, README pages), edit `.gitignore` in this folder and put the following in the file:
+
+```
+*.zip
+*.html
+*.bat
+.gitignore
+!index.html
+```
+
+- Each line is a pattern: `*.zip` ignores every `.zip` file, and so on.
+- The last line, `!index.html`, is an exception: it keeps `index.html` — the app itself, which GitHub Pages serves — from being ignored by `*.html`.
+- `.gitignore` only affects files Git isn't tracking yet. A file that was already committed (for example `README.html` or the `.bat` file) keeps being uploaded until you untrack it once, e.g. `git rm --cached README.html`, then commit and push. The file stays in this folder; it just leaves the repo.
