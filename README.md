@@ -167,7 +167,7 @@ To stop Git from uploading files that don't belong online (zips, backups, README
 *.zip
 *.html
 *.bat
-.gitignore
+students.csv
 !index.html
 ```
 
