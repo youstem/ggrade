@@ -94,6 +94,28 @@
     width: 72px; text-align: center;
   }
   .grade-table th { top: 52px; }
+
+  /* Individual / Group sub-tabs on the grading page */
+  .grade-tabs {
+    display: flex; gap: 0; margin: 10px 0 0;
+    border-bottom: 2px solid #37474f;
+  }
+  .grade-tabs button {
+    border-radius: 6px 6px 0 0; border-bottom: none;
+    margin-right: 4px; background: #eceff1;
+  }
+  .grade-tabs button.active {
+    background: #37474f; color: white; border-color: #37474f;
+  }
+  .grade-tabs button .tab-state { font-size: 12px; margin-left: 4px; }
+  .grade-pane { padding-top: 10px; }
+  .group-members-note { margin: 0 0 8px; }
+  .type-badge {
+    display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 12px;
+  }
+  .type-individual { background: #e3f2fd; color: #0d47a1; }
+  .type-group { background: #fff3e0; color: #e65100; }
+  th.group-col { background: #fff3e0; }
   .score-error {
     border-color: #d32f2f !important;
     background: #ffebee !important;
@@ -307,7 +329,8 @@
   <div class="card">
     <h2>Rubrics</h2>
     <p class="small">
-      Each rubric is shown compactly as <b>first word (max points)</b>
+      Each rubric is shown compactly as <b>first word (max points)</b>.
+      <b>Individual</b> items are scored per student; <b>Group</b> items are scored once per group and applied to every member.
     </p>
     <div id="rubricTable"></div>
   </div>
@@ -339,6 +362,7 @@
       <hr>
 
       <div id="selectedGroupTitle">No group selected</div>
+      <div id="gradeTabs" class="grade-tabs hidden"></div>
       <div id="gradeTable"></div>
       <div id="unsavedIndicator" class="small"></div>
 
@@ -347,6 +371,8 @@
         <button onclick="clearCurrentGroup()">Clear Current Group</button>
         <button onclick="exportScores()">Export Scores CSV</button>
         <span id="saveMessage" class="small"></span>
+      </div>
+      <div class="small" style="margin-top:6px">Blank boxes are saved as <b>0</b> when you click Save Group (on both tabs).
       </div>
     </div>
   </div>
@@ -362,7 +388,11 @@ let roster = [];
 let rubrics = [];
 let groups = [];
 // key = canvas_user_id (or fallback name)
-let scores = {}; 
+let scores = {};
+// key = group id, value = { rubricIndex: score } for rubrics whose type is "group"
+let groupScores = {};
+// which grading sub-tab is showing: "individual" or "group"
+let gradeTab = "individual";
 let groupOrder = [];
 let selectedGroupId = null;
 let loadedRosterName = "";
@@ -567,6 +597,19 @@ async function loadFiles() {
       throw new Error("Rubric CSV must contain 'index', 'rubric text', and 'max points' columns");
     }
 
+    // Optional 'type' column: "individual" (scored per student) or "group" (scored once per group).
+    // If the column is missing or a cell is blank, the item is treated as individual (old rubric files still work).
+    const typeCol = findColumn(rubricRows[0], "type");
+    const badTypes = [];
+    rubricRows.forEach((r, i) => {
+      if (typeCol && parseRubricType(r[typeCol]) === null) {
+        badTypes.push(`row ${i + 2}: '${r[typeCol]}'`);
+      }
+    });
+    if (badTypes.length) {
+      throw new Error("Rubric 'type' must be 'individual' or 'group' — check " + badTypes.join(", "));
+    }
+
     roster = rosterRows.map(r => ({
       name: r[nameCol],
       group_name: r[groupCol],
@@ -579,13 +622,15 @@ async function loadFiles() {
     rubrics = rubricRows.map(r => ({
       index: r[indexCol],
       text: r[textCol],
-      max: Number(r[maxCol])
+      max: Number(r[maxCol]),
+      type: typeCol ? parseRubricType(r[typeCol]) : "individual"
     })).filter(r => r.text && Number.isFinite(r.max) && r.max >= 0);
 
     if (!roster.length) throw new Error("No valid students found");
     if (!rubrics.length) throw new Error("No valid rubrics found");
 
     groups = buildGroups();
+    gradeTab = rubricsOfType("individual").length ? "individual" : "group";
     loadedRosterName = rf.name;
     loadedRubricName = rubf.name;
 	
@@ -599,29 +644,56 @@ async function loadFiles() {
 	// - don't just silently restore or silently discard it 
 	// - ask which one is wanted
     const existing = readSavedState();
-    if (existing && existing.scores) {
+    if (existing && (existing.scores || existing.groupScores)) {
       presentScoreSheetChoice(existing);
       return; // renderAll() happens once the user picks, in applyScoreSheetChoice()
     }
 
     scores = {};
+    groupScores = {};
     $("loadMessage").innerHTML =
       '<span class="success">Files loaded successfully</span> ' +
       '<span class="small">No saved scores found for key=\'roster + rubric\', so start a new score sheet</span>';
-    setStatus(`${roster.length} students · ${groups.length} groups · ${rubrics.length} rubrics`);
+    setStatus(statusText());
     renderAll();
   } catch (e) {
     $("loadMessage").innerHTML = '<span class="error">' + escapeHtml(e.message) + '</span>';
   }
 }
 
-// Groups the roster into presentation groups, 
+// Maps a rubric 'type' cell to "individual" or "group"; blank → "individual"; anything unrecognized → null
+function parseRubricType(raw) {
+  const t = String(raw ?? "").trim().toLowerCase();
+  if (t === "" || t === "individual" || t === "member" || t === "i") return "individual";
+  if (t === "group" || t === "team" || t === "g") return "group";
+  return null;
+}
+
+// Returns [{ r, i }] for every rubric of the given type, keeping i = position in the full `rubrics` array
+// (that position is the key used inside `scores` / `groupScores`)
+function rubricsOfType(type) {
+  return rubrics.map((r, i) => ({ r, i })).filter(x => x.r.type === type);
+}
+
+// Header status line, e.g. "41 students · 12 groups · 4 individual + 2 group rubrics"
+function statusText() {
+  const ni = rubricsOfType("individual").length;
+  const ng = rubricsOfType("group").length;
+  return `${roster.length} students · ${groups.length} groups · ${ni} individual + ${ng} group rubrics`;
+}
+
+// Finds the group a student belongs to (same key rule as buildGroups)
+function groupIdOf(s) {
+  return s.canvas_group_id || s.group_name;
+}
+
+// Groups the roster into presentation groups,
 // - groups are keyed by canvas_group_id when present
 // - members and the groups themselves are both sorted alphabetically for stable, predictable display order
 function buildGroups() {
   const map = new Map();
   roster.forEach(s => {
-    const id = s.canvas_group_id || s.group_name;
+    const id = groupIdOf(s);
     if (!map.has(id)) map.set(id, {
       id,
       name: s.group_name,
@@ -661,7 +733,8 @@ function renderSummary() {
     <div><b>Rubric:</b> ${escapeHtml(loadedRubricName || "—")}</div>
     <div><b><a href="#" onclick="showSection('students')"; return false;>Students:</a></b> ${roster.length}</div>
     <div><b><a href="#" onclick="showSection('groups')"; return false;>Groups:</a></b> ${groups.length}</div>
-    <div><b><a href="#" onclick="showSection('rubrics')"; return false;>Rubrics:</a></b> ${rubrics.length}</div>
+    <div><b><a href="#" onclick="showSection('rubrics')"; return false;>Rubrics:</a></b> ${rubrics.length}
+      (${rubricsOfType("individual").length} individual, ${rubricsOfType("group").length} group)</div>
   `;
 }
 
@@ -683,10 +756,11 @@ function renderRubrics() {
     $("rubricTable").innerHTML = "No rubric loaded";
     return;
   }
-  let html = `<table><thead><tr><th>#</th><th>Short label</th><th>Maximum</th><th>Full rubric text</th></tr></thead><tbody>`;
+  let html = `<table><thead><tr><th>#</th><th>Type</th><th>Short label</th><th>Maximum</th><th>Full rubric text</th></tr></thead><tbody>`;
   rubrics.forEach((r, i) => {
     html += `<tr>
       <td>${escapeHtml(r.index || String(i+1))}</td>
+      <td><span class="type-badge type-${r.type}">${r.type === "group" ? "Group" : "Individual"}</span></td>
       <td><b>${escapeHtml(firstWord(r.text))}</b></td>
       <td>${r.max}</td>
       <td>${escapeHtml(r.text)}</td>
@@ -703,19 +777,19 @@ function renderStudents() {
     return;
   }
 
-  let html = `<table><thead><tr><th>Student name</th><th>Group name</th>`;
+  let html = `<p class="small">Columns shaded orange are <b>group</b> rubrics — every member shows their group's score.</p>`;
+  html += `<table><thead><tr><th>Student name</th><th>Group name</th>`;
   rubrics.forEach(r => {
-    html += `<th>${escapeHtml(compactRubric(r))}</th>`;
+    const cls = r.type === "group" ? ' class="group-col"' : "";
+    html += `<th${cls}>${escapeHtml(compactRubric(r))}${r.type === "group" ? " [G]" : ""}</th>`;
   });
   html += `<th>Total</th></tr></thead><tbody>`;
 
   [...roster].sort((a,b) => a.name.localeCompare(b.name)).forEach(s => {
-    const key = studentKey(s);
-    const sc = scores[key] || {};
     let total = 0;
     html += `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.group_name)}</td>`;
     rubrics.forEach((r,i) => {
-      const v = sc[i] ?? "";
+      const v = studentScore(s, i);
       if (v !== "") total += Number(v);
       html += `<td>${escapeHtml(String(v))}</td>`;
     });
@@ -735,7 +809,7 @@ function renderGroups() {
 
   let html = `<table><thead><tr><th>Group</th><th>Members</th><th>Status</th></tr></thead><tbody>`;
   groups.forEach(g => {
-    const complete = g.members.every(s => isStudentComplete(s));
+    const complete = isGroupComplete(g);
     html += `<tr>
       <td>${escapeHtml(g.name)}</td>
       <td>${g.members.map(s => escapeHtml(s.name)).join("<br>")}</td>
@@ -773,7 +847,7 @@ function renderGrading() {
 
   let list = "";
   groupOrder.forEach(g => {
-    const complete = g.members.every(s => isStudentComplete(s));
+    const complete = isGroupComplete(g);
     const selected = selectedGroupId === g.id ? " selected" : "";
     const done = complete ? " completed" : "";
     list += `<button class="${done}${selected}" onclick="selectGroup('${escapeAttr(g.id)}')">
@@ -793,51 +867,114 @@ function selectGroup(id) {
   renderGrading();
 }
 
-// Builds the score-entry table for the currently selected group
+// Builds the score-entry area for the currently selected group, with two sub-tabs:
+// - "Individual": one row per member × each individual rubric (same as before)
+// - "Group": one row for the whole group × each group rubric (score applies to every member)
+// Both panes are rendered at once (only one is visible), so "Save Group" saves both together
 function renderGradeTable() {
   const g = groups.find(x => String(x.id) === String(selectedGroupId));
   if (!g) {
     $("gradeTable").innerHTML = "";
+    $("gradeTabs").classList.add("hidden");
+    $("selectedGroupTitle").textContent = "No group selected";
     return;
   }
 
-  let html = '<div class="table-wrap"><table class="grade-table"><thead><tr>';
-  html += "<th>Student</th>";
+  $("selectedGroupTitle").innerHTML = `<h3 style="margin:6px 0">${escapeHtml(g.name)}</h3>`;
 
-  rubrics.forEach((r, i) => {
-    const first = firstWord(r.text);
-    html += `<th title="${escapeHtml(r.text)}"><span class="rubric-short">${escapeHtml(first)} (${r.max})</span></th>`;
-  });
+  const indiv = rubricsOfType("individual");
+  const grp = rubricsOfType("group");
+  if (gradeTab === "individual" && !indiv.length) gradeTab = "group";
+  if (gradeTab === "group" && !grp.length) gradeTab = "individual";
 
-  html += "</tr></thead><tbody>";
+  // ---- Individual pane ----
+  let ind = "";
+  if (indiv.length) {
+    ind += '<div class="table-wrap"><table class="grade-table"><thead><tr><th>Student</th>';
+    indiv.forEach(({ r }) => {
+      ind += `<th title="${escapeHtml(r.text)}"><span class="rubric-short">${escapeHtml(firstWord(r.text))} (${r.max})</span></th>`;
+    });
+    ind += "</tr></thead><tbody>";
+    [...g.members].sort((a,b) => a.name.localeCompare(b.name)).forEach(stu => {
+      const key = studentKey(stu);
+      const sc = scores[key] || {};
+      ind += `<tr><td>${escapeHtml(stu.name)}</td>`;
+      indiv.forEach(({ r, i }) => {
+        ind += `<td><input type="number" min="0" max="${r.max}" step="1"
+          value="${escapeAttr(sc[i] ?? "")}"
+          data-student="${escapeAttr(key)}" data-rubric="${i}"
+          oninput="onScoreInput(this)"></td>`;
+      });
+      ind += "</tr>";
+    });
+    ind += "</tbody></table></div>";
+  }
 
-  [...g.members].sort((a,b) => a.name.localeCompare(b.name)).forEach(stu => {
-    const key = studentKey(stu);
-    const sc = scores[key] || {};
-    html += `<tr><td>${escapeHtml(stu.name)}</td>`;
-
-    rubrics.forEach((r, i) => {
-      const value = sc[i] ?? "";
-      html += `<td><input type="number" min="0" max="${r.max}" step="1"
-        value="${escapeAttr(value)}"
-        data-student="${escapeAttr(key)}" data-rubric="${i}"
+  // ---- Group pane ----
+  let gp = "";
+  if (grp.length) {
+    const gs = groupScores[g.id] || {};
+    const names = [...g.members].sort((a,b) => a.name.localeCompare(b.name)).map(s => escapeHtml(s.name)).join("; ");
+    gp += `<p class="small group-members-note"><b>Members:</b> ${names}<br>Group scores apply to every member above.</p>`;
+    gp += '<div class="table-wrap"><table class="grade-table"><thead><tr><th>Group</th>';
+    grp.forEach(({ r }) => {
+      gp += `<th title="${escapeHtml(r.text)}"><span class="rubric-short">${escapeHtml(firstWord(r.text))} (${r.max})</span></th>`;
+    });
+    gp += `</tr></thead><tbody><tr><td>${escapeHtml(g.name)}</td>`;
+    grp.forEach(({ r, i }) => {
+      gp += `<td><input type="number" min="0" max="${r.max}" step="1"
+        value="${escapeAttr(gs[i] ?? "")}"
+        data-group="${escapeAttr(g.id)}" data-rubric="${i}"
         oninput="onScoreInput(this)"></td>`;
     });
+    gp += "</tr></tbody></table></div>";
+  }
 
-    html += "</tr>";
-  });
-
-  html += "</tbody></table></div>";
-
-  // Error/status is explicitly a separate row after the table.
+  let html = `<div id="pane-individual" class="grade-pane${gradeTab === "individual" ? "" : " hidden"}">${ind}</div>`;
+  html += `<div id="pane-group" class="grade-pane${gradeTab === "group" ? "" : " hidden"}">${gp}</div>`;
+  // Error/status is explicitly a separate row after the table(s).
   html += '<div id="scoreErrorMessage" class="score-error-row" aria-live="polite"></div>';
-
   $("gradeTable").innerHTML = html;
+
+  renderGradeTabs(g);
   updateScoreErrorMessage();
 
   // Freshly built from whatever is currently saved — no edits yet.
   hasUnsavedEdits = false;
   updateUnsavedIndicator();
+}
+
+// Draws the "Individual" / "Group" tab buttons with a ✓/○ completion mark for the selected group.
+// A tab is only shown if the rubric has at least one item of that type.
+function renderGradeTabs(g) {
+  const indiv = rubricsOfType("individual");
+  const grp = rubricsOfType("group");
+  const bar = $("gradeTabs");
+  if (!indiv.length || !grp.length) {
+    // Only one kind of rubric: no need for tabs at all
+    bar.classList.add("hidden");
+    bar.innerHTML = "";
+    return;
+  }
+  const indDone = g.members.every(s => isStudentComplete(s));
+  const grpDone = isGroupScoreComplete(g);
+  bar.innerHTML = `
+    <button class="${gradeTab === "individual" ? "active" : ""}" onclick="switchGradeTab('individual')">
+      Individual (${indiv.length})<span class="tab-state">${indDone ? "✓" : "○"}</span></button>
+    <button class="${gradeTab === "group" ? "active" : ""}" onclick="switchGradeTab('group')">
+      Group (${grp.length})<span class="tab-state">${grpDone ? "✓" : "○"}</span></button>`;
+  bar.classList.remove("hidden");
+}
+
+// Switches between the Individual and Group panes WITHOUT re-rendering,
+// so anything typed (saved or not) on either tab stays in place
+function switchGradeTab(tab) {
+  gradeTab = tab;
+  $("pane-individual")?.classList.toggle("hidden", tab !== "individual");
+  $("pane-group")?.classList.toggle("hidden", tab !== "group");
+  document.querySelectorAll("#gradeTabs button").forEach((b, idx) => {
+    b.classList.toggle("active", (idx === 0) === (tab === "individual"));
+  });
 }
 
 // Scans every score input in the currently rendered grade table and lists in the row *below* the table
@@ -858,7 +995,8 @@ function updateScoreErrorMessage() {
     const label = rubrics[ri] ? compactRubric(rubrics[ri]) : `Item ${ri + 1}`;
     const row = input.closest("tr");
     const studentName = row ? row.querySelector("td")?.textContent.trim() : "";
-    const who = studentName ? `${studentName}: ${label}` : label;
+    const tabTag = input.dataset.group !== undefined ? "[Group tab] " : "[Individual tab] ";
+    const who = tabTag + (studentName ? `${studentName}: ${label}` : label);
 
     if (!Number.isFinite(n)) {
       messages.push(`${who} - enter a number`);
@@ -869,7 +1007,7 @@ function updateScoreErrorMessage() {
       return;
     }
     if (n < 0 || n > max) {
-      messages.push(`${who} - enter between 0–${max})`);
+      messages.push(`${who} - enter between 0–${max}`);
     }
   });
 
@@ -921,11 +1059,21 @@ function confirmDiscardUnsaved(actionLabel) {
   return confirm(`You have unsaved score changes — 'Save Group' first if you want to keep them`);
 }
 
-// Copies a validated score input's value into the in-memory `scores` object
+// Copies a validated score input's value into memory:
+// - individual inputs (data-student) go into `scores[studentKey][rubricIndex]`
+// - group inputs (data-group) go into `groupScores[groupId][rubricIndex]`
 function storeInputValue(input) {
   if (!validateScore(input)) return;
-  const key = input.dataset.student;
   const ri = Number(input.dataset.rubric);
+  if (input.dataset.group !== undefined) {
+    const gid = input.dataset.group;
+    if (!groupScores[gid]) groupScores[gid] = {};
+    if (input.value.trim() === "") delete groupScores[gid][ri];
+    else groupScores[gid][ri] = Number(input.value);
+    persistState();
+    return;
+  }
+  const key = input.dataset.student;
   if (!scores[key]) scores[key] = {};
   if (input.value.trim() === "") delete scores[key][ri];
   else scores[key][ri] = Number(input.value);
@@ -956,6 +1104,10 @@ function saveCurrentGroup() {
     return;
   }
 
+  // v2: a blank box means 0 — fill every empty box (both tabs) with 0 before storing,
+  // so a saved group is always complete and its totals are correct
+  let filled = 0;
+  inputs.forEach(i => { if (i.value.trim() === "") { i.value = "0"; filled++; } });
   inputs.forEach(i => storeInputValue(i));
 
   persistState();
@@ -963,7 +1115,8 @@ function saveCurrentGroup() {
   renderStudents();
   renderGroups();
 
-  $("saveMessage").innerHTML = '<span class="success">Group saved</span>';
+  $("saveMessage").innerHTML = '<span class="success">Group saved</span>' +
+    (filled ? ` <span class="small">(${filled} blank box${filled === 1 ? "" : "es"} saved as 0)</span>` : "");
 }
 
 // Handles "Clear Current Group": after confirmation, deletes all saved scores for the selected group's members
@@ -971,9 +1124,10 @@ function clearCurrentGroup() {
   const g = groups.find(x => String(x.id) === String(selectedGroupId));
   if (!g) return;
 
-  if (!confirm(`Clear all scores for group '${g.name}'?`)) return;
+  if (!confirm(`Clear all scores (individual AND group) for group '${g.name}'?`)) return;
 
   g.members.forEach(s => delete scores[studentKey(s)]);
+  delete groupScores[g.id];
   persistState();
   renderGrading();
   renderStudents();
@@ -981,14 +1135,34 @@ function clearCurrentGroup() {
   $("saveMessage").textContent = "Scores cleared";
 }
 
-// Returns true if a student has a saved score for every rubric item
+// Returns true if a student has a saved score for every INDIVIDUAL rubric item
 function isStudentComplete(s) {
   const sc = scores[studentKey(s)] || {};
-  return rubrics.every((r,i) => sc[i] !== undefined && sc[i] !== "");
+  return rubricsOfType("individual").every(({ i }) => sc[i] !== undefined && sc[i] !== "");
+}
+
+// Returns true if the group has a saved score for every GROUP rubric item
+function isGroupScoreComplete(g) {
+  const gs = groupScores[g.id] || {};
+  return rubricsOfType("group").every(({ i }) => gs[i] !== undefined && gs[i] !== "");
+}
+
+// A group is complete when every member's individual scores AND the group scores are all saved
+function isGroupComplete(g) {
+  return g.members.every(s => isStudentComplete(s)) && isGroupScoreComplete(g);
+}
+
+// Returns a student's saved score for rubric i (either their own, or their group's for a group rubric), or ""
+function studentScore(s, i) {
+  const r = rubrics[i];
+  if (!r) return "";
+  if (r.type === "group") return (groupScores[groupIdOf(s)] || {})[i] ?? "";
+  return (scores[studentKey(s)] || {})[i] ?? "";
 }
 
 // Handles "Export Scores CSV": 
 // - builds and downloads a CSV with every student's canvas_user_id, name, group, one column per rubric item
+// - group rubric columns are labelled "(group)" and repeat the group's score on each member's row
 // - named <classID>-scores-YYYY-MM-DD.csv 
 // - the file lands in the browser's normal downloads location, not automatically in this folder
 function exportScores() {
@@ -996,16 +1170,15 @@ function exportScores() {
   if (!confirmDiscardUnsaved("Exporting")) return;
 
   const headers = ["canvas_user_id", "student name", "group name",
-                   ...rubrics.map(r => r.text)];
+                   ...rubrics.map(r => r.type === "group" ? `${r.text} (group)` : r.text)];
   const rows = [headers];
 
   [...roster].sort((a,b) => a.name.localeCompare(b.name)).forEach(s => {
-    const sc = scores[studentKey(s)] || {};
     rows.push([
       s.canvas_user_id,
       s.name,
       s.group_name,
-      ...rubrics.map((r,i) => sc[i] ?? "")
+      ...rubrics.map((r,i) => studentScore(s, i))
     ]);
   });
 
@@ -1054,6 +1227,7 @@ function persistState() {
     rubric: loadedRubricName,
     classId,
     scores,
+    groupScores,
     savedAt: new Date().toISOString()
   };
   try { localStorage.setItem("presentationGraderState:" + dataKey, JSON.stringify(payload)); } catch (_) {}
@@ -1098,6 +1272,7 @@ function applyScoreSheetChoice() {
 
   if (choice === "same" && pendingRestore) {
     scores = pendingRestore.scores || {};
+    groupScores = pendingRestore.groupScores || {};
     if (pendingRestore.classId) {
       classId = pendingRestore.classId;
       const input = $("classIdInput");
@@ -1106,12 +1281,13 @@ function applyScoreSheetChoice() {
     $("loadMessage").innerHTML = '<span class="success">Continuing the same score sheet</span>';
   } else {
     scores = {};
+    groupScores = {};
     persistState(); // immediately overwrite the old saved slot with this blank one
     $("loadMessage").innerHTML = '<span class="success">Starting a new score sheet for this roster + rubric</span>';
   }
 
   pendingRestore = null;
-  setStatus(`${roster.length} students · ${groups.length} groups · ${rubrics.length} rubrics`);
+  setStatus(statusText());
   renderAll();
 }
 

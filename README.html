@@ -1,20 +1,33 @@
 <h1>Presentation Grader</h1>
-<p>A local HTML/JavaScript grading tool for Canvas-based group presentations.</p>
+<p>A browser-based HTML/JavaScript tool for grading Canvas group presentations on the spot. Each student gets individual scores, and each group gets group scores.</p>
+<h2>Two ways to open it</h2>
+<ol>
+<li><strong>Online (phone or computer):</strong> go to <strong>https://youstem.github.io/ggrade/</strong><ul>
+<li>Works in Safari on an iPhone, or in Chrome/Edge on a computer.</li>
+<li>Nothing to install or download.</li>
+</ul>
+</li>
+<li><strong>A copy of <code>index.html</code> (computer):</strong> if you were sent the file directly, save it anywhere and double-click it to open it in Chrome or Edge.<ul>
+<li><strong>On an iPhone, use the online link instead.</strong> A downloaded copy is just a local file, and iOS can silently fail to run it — the page looks fine but no button does anything.</li>
+</ul>
+</li>
+</ol>
+<p>Either way, your roster, rubric and scores stay in your own browser. Nothing is uploaded or shared with anyone else using the same link.</p>
 <h2>Files</h2>
 <ul>
 <li><code>index.html</code> — the grading application. No server or installation is required.</li>
-<li><code>rubric.csv</code> — example rubric file. Replace/edit this with your actual rubric, keeping the same column headers (see "CSV format requirements" below).</li>
+<li><code>rubrics.csv</code> — example rubric file. Edit it to match your own rubric, keeping the same column headers (see "CSV format requirements" below).</li>
 </ul>
-<p>That's the whole set — share just these two files with co-faculty. The roster CSV comes straight from Canvas each time and doesn't need to travel with the app.</p>
+<p>Those two files are all a grader needs (or just the online link plus a rubric). The roster CSV comes straight from Canvas each time.</p>
 <h2>CSV format requirements</h2>
-<p>Any CSV that has these columns will work — it doesn't have to come from Canvas. Column name matching ignores case and treats spaces, underscores, and dashes as the same thing (so <code>group_name</code>, <code>Group Name</code>, and <code>group-name</code> all match).</p>
+<p>Any CSV with these columns will work — it doesn't have to come from Canvas. Column-name matching ignores case and treats spaces, underscores and dashes as the same (so <code>group_name</code>, <code>Group Name</code> and <code>group-name</code> all match).</p>
 <p><strong>Roster CSV</strong> — one row per student:</p>
 <ul>
 <li><code>name</code> — <strong>Required.</strong> Student's display name.</li>
-<li><code>group_name</code> — <strong>Required.</strong> The presentation group's name — students who share this value are grouped together (unless <code>canvas_group_id</code> is also present; see below).</li>
-<li><code>canvas_user_id</code> — Recommended. A unique student ID. Used to tell apart two students with the same name, and included in the exported CSV to make matching back to Canvas safer. If omitted, the app falls back to matching by name.</li>
-<li><code>canvas_group_id</code> — Optional. A unique group ID. If present, this — not <code>group_name</code> — is used to group students, which protects against two different groups accidentally sharing the same name.</li>
-<li><code>login_id</code>, <code>sections</code> — Optional. Carried through if present; not used for grading logic.</li>
+<li><code>group_name</code> — <strong>Required.</strong> The presentation group's name. Students who share this value are grouped together (unless <code>canvas_group_id</code> is also present; see below).</li>
+<li><code>canvas_user_id</code> — Recommended. A unique student ID. Tells apart two students with the same name, and is included in the exported CSV to make matching back to Canvas safer. If omitted, the app matches by name.</li>
+<li><code>canvas_group_id</code> — Optional. A unique group ID. If present, this — not <code>group_name</code> — is used to group students, so two groups that happen to share a name are never merged.</li>
+<li><code>login_id</code>, <code>sections</code> — Optional. Carried through if present; not used for grading.</li>
 </ul>
 <p>Minimal example:</p>
 <ul>
@@ -25,83 +38,105 @@
 </ul>
 <p><strong>Rubric CSV</strong> — one row per rubric item:</p>
 <ul>
-<li><code>index</code> — <strong>Required.</strong> Display order / label for the rubric item (e.g. <code>1</code>, <code>2</code>, ...).</li>
-<li><code>rubric text</code> — <strong>Required.</strong> The full rubric description. Its first word is used as the compact column heading in the grading table (e.g. "Content and accuracy" → shown as <code>Content (5)</code>).</li>
-<li><code>max points</code> — <strong>Required.</strong> The maximum score for that item; scores must be a whole number from 0 to this value.</li>
+<li><code>index</code> — <strong>Required.</strong> Display order / label for the item (e.g. <code>1</code>, <code>2</code>, ...).</li>
+<li><code>rubric text</code> — <strong>Required.</strong> The full rubric description. Its first word is the compact column heading in the grading table (e.g. "Speaking role" → <code>Speaking (4)</code>).</li>
+<li><code>max points</code> — <strong>Required.</strong> The maximum score; scores must be whole numbers from 0 to this value.</li>
+<li><code>type</code> — Optional. <code>individual</code> (scored per student) or <code>group</code> (scored once for the whole group, and that score is given to every member). A blank cell — or no <code>type</code> column at all — means <code>individual</code>, so older rubric files still load. Any other value stops <strong>Load files</strong> with a message naming the bad row.</li>
 </ul>
-<p>Minimal example (this is what <code>rubric.csv</code> already contains):</p>
+<p>Example (this is what <code>rubrics.csv</code> contains):</p>
 <ul>
-<li><code>index,rubric text,max points</code></li>
-<li><code>1,Content and accuracy,5</code></li>
-<li><code>2,Analysis,5</code></li>
+<li><code>index,rubric text,max points,type</code></li>
+<li><code>1,Speaking role,4,individual</code></li>
+<li><code>2,Response to questions,4,individual</code></li>
+<li><code>5,Argument and evidence,6,group</code></li>
+<li><code>6,Visual communication and timing,3,group</code></li>
+<li><code>7,Team coordination,3,group</code></li>
 </ul>
-<p>If a required column is missing from either file, <strong>Load files</strong> will refuse to load it and tell you which column is missing, rather than loading with wrong or blank data.</p>
+<p>If a required column is missing from either file, <strong>Load files</strong> refuses to load and says which column is missing, rather than loading wrong or blank data.</p>
 <h2>Use</h2>
 <ol>
-<li>Open <code>index.html</code> in Chrome or Edge.</li>
-<li>On <strong>Setup</strong>, enter a <strong>Class name/ID/code</strong> (e.g. <code>PSCI-3350-001</code>). This is required — it's what keeps different courses/sections from ever being confused with each other, and it prefixes the exported CSV's filename (step 12).</li>
-<li>Download/export the Canvas roster CSV containing at least:</li>
+<li>Open the app (see "Two ways to open it" above).</li>
+<li>On <strong>Setup</strong>, enter a <strong>Class name/ID/code</strong> (e.g. <code>PSCI-3350-001</code>). This is required — it keeps different courses/sections apart, and it prefixes the exported CSV's filename.</li>
+<li>Export the roster CSV from Canvas. It needs at least:<ul>
 <li><code>name</code></li>
 <li><code>group_name</code></li>
 <li>preferably <code>canvas_user_id</code></li>
-<li>Select the Canvas roster CSV and <code>rubric.csv</code>.</li>
-<li>Click <strong>Load files</strong>. If nothing was saved yet for this exact roster+rubric, it just loads. If a save already exists (last saved at some timestamp), you're asked to pick one: <strong>Same score sheet</strong> (continue, restoring those scores) or <strong>New score sheet</strong> (erase them and start this roster+rubric blank).</li>
-<li>Use:</li>
-<li><strong>Rubrics</strong> to confirm the rubric.</li>
-<li><strong>Students &amp; Scores</strong> to see all students and scores.</li>
-<li><strong>Groups</strong> to see group membership.</li>
-<li><strong>GRADING</strong> to grade presentations.</li>
-<li>In GRADING, groups are randomized once for the session.</li>
-<li>Select a group. Members are displayed alphabetically.</li>
-<li>Rubric headings use <code>FirstWord (MaxPoints)</code>. Click a heading to see the full rubric text.</li>
-<li>Enter integer scores from 0 through the rubric's maximum. Typing alone does <strong>not</strong> save anything — see "The three GRADING buttons" below.</li>
-<li>Click <strong>Save Group</strong> to actually record the scores you just typed.</li>
-<li>Click <strong>Export Scores CSV</strong> to create <code>&lt;classID&gt;-scores-YYYY-MM-DD.csv</code>.</li>
+</ul>
+</li>
+<li>Select the roster CSV and the rubric CSV.</li>
+<li>Click <strong>Load files</strong>. If nothing was saved yet for this exact roster + rubric, it just loads. If a save already exists, you're asked to choose:<ul>
+<li><strong>Same score sheet</strong> — continue, restoring those scores, or</li>
+<li><strong>New score sheet</strong> — erase them and start blank.</li>
+</ul>
+</li>
+<li>The tabs across the top:<ul>
+<li><strong>Rubrics</strong> — confirm the rubric, including which items are individual and which are group.</li>
+<li><strong>Students &amp; Scores</strong> — every student and their scores (group items shaded and marked [G]).</li>
+<li><strong>Groups</strong> — group membership and whether each group is complete.</li>
+<li><strong>GRADING</strong> — grade presentations.</li>
+</ul>
+</li>
+<li>In GRADING, groups are listed in a random order, shuffled once per session.</li>
+<li>Select a group. Members are listed alphabetically.</li>
+<li>Rubric headings show <code>FirstWord (MaxPoints)</code>. Hover over a heading to see the full rubric text.</li>
+<li>
+<p>If the rubric has both kinds of items, there are two tabs:</p>
+<ul>
+<li><strong>Individual</strong> — one row per member.</li>
+<li><strong>Group</strong> — one row for the whole group, with the member names listed above it.</li>
+</ul>
+<p>Each tab shows ✓ once its scores are saved. Switching tabs never loses what you typed.</p>
+</li>
+<li>
+<p>Enter whole-number scores from 0 to the item's maximum. <strong>Any box left blank is saved as 0.</strong> Typing alone does <strong>not</strong> save anything.</p>
+</li>
+<li>Click <strong>Save Group</strong>. It saves both tabs at once, and the group is then marked complete (✓).</li>
+<li>Click <strong>Export Scores CSV</strong> to download <code>&lt;classID&gt;-scores-YYYY-MM-DD.csv</code>.</li>
 </ol>
 <h2>The three GRADING buttons</h2>
-<p>They do three different things, and only one of them writes anything:</p>
+<p>Only one of them writes anything:</p>
 <ul>
-<li><strong>Save Group</strong> — validates the scores currently typed for the <em>selected group</em> and is the only thing that actually records them (into the app's memory and the browser's local storage). Nothing you type is kept until you click it. If any field is invalid, it's highlighted red, listed by name below the table, and the save is blocked until you fix it. Switching to a different group, leaving the Grading tab, or clicking Export while you have unsaved typed values will ask you to confirm first, since doing so discards anything not yet saved.</li>
-<li><strong>Clear Current Group</strong> — after a confirmation prompt, erases all <em>saved</em> scores for every member of the <em>selected group only</em>. It does not touch any other group.</li>
-<li><strong>Export Scores CSV</strong> — downloads a CSV snapshot of every group's <em>saved</em> scores (not just the selected one). If the group on screen has unsaved typed values, you'll be warned that they won't be in the export unless you Save Group first. This is a one-way export for your records/Canvas upload; export as many times as you like.</li>
+<li><strong>Save Group</strong> — checks the scores typed for the <em>selected group</em>, fills every blank box with 0, and records them (in the app and in the browser's local storage). Nothing you type is kept until you click it. If a box is invalid, it's highlighted red, listed below the table, and the save is blocked until you fix it. Switching groups, leaving the Grading tab, or exporting while you have unsaved typing asks you to confirm first, since unsaved typing would be lost.</li>
+<li><strong>Clear Current Group</strong> — after a confirmation, erases all <em>saved</em> scores — individual and group — for the <em>selected group only</em>.</li>
+<li><strong>Export Scores CSV</strong> — downloads a CSV of every group's <em>saved</em> scores (not just the selected group). Export as many times as you like.</li>
 </ul>
-<h2>Where files are saved</h2>
+<h2>Where scores are saved</h2>
 <ul>
-<li><strong>Scores while grading</strong>: kept only in this browser's local storage, in a slot keyed to the <em>exact content</em> of the roster and rubric CSVs you loaded (not just their filenames). Reloading the same two files later — even next week — will bring those same scores back on purpose, so an accidental tab close never loses your work. It's not a file and isn't in this folder; it won't show up in a different browser or on a different computer.</li>
-<li><strong>If you ever reuse the exact same roster+rubric files for a different grading round</strong> (e.g. finals presentations, same class), the app can't tell the two rounds apart by file content alone — so <strong>Load files</strong> will stop and ask you to choose <strong>Same score sheet</strong> or <strong>New score sheet</strong> (see step 5 above) instead of silently picking one for you.</li>
-<li><strong>Exported Scores CSV</strong>: a normal browser download. It goes wherever your browser is configured to save downloads (commonly a <code>Downloads</code> folder), <em>not</em> automatically into this <code>PresentationGrader</code> folder — a webpage can't write directly into an arbitrary folder on your computer for security reasons. After exporting, move/copy the CSV into this folder yourself, or set your browser to "Ask where to save each file" (Chrome/Edge: Settings → Downloads) so you can choose this folder every time you export.</li>
+<li><strong>While grading:</strong> in this browser's local storage, in a slot tied to the <em>exact content</em> of the roster and rubric CSVs (not their filenames). Loading the same two files later — even next week — brings the scores back, so closing the tab by accident never loses work.<ul>
+<li>Scores stay in <strong>that browser on that device</strong>. They won't appear in a different browser, on a different computer or phone, or — on the same computer — between the online link and a downloaded copy of <code>index.html</code>. Pick one way to open the app and stick with it for a grading round.</li>
+<li>If you reuse the exact same roster + rubric files for a new grading round (e.g. finals), <strong>Load files</strong> asks you to choose <strong>Same score sheet</strong> or <strong>New score sheet</strong> (step 5) instead of guessing.</li>
 </ul>
-<h2>Important</h2>
-<p>The application is completely local. Student data and grades are processed in the browser and are not sent to a web server.</p>
-<p>The exported CSV includes <code>canvas_user_id</code> in addition to the requested student name, group name, and rubric columns. This makes later matching with Canvas safer.</p>
-<h2>iPhone / mobile use</h2>
-<p>If you're grading on a phone, this is everything you need to do:</p>
-<ol>
-<li>Open <strong>Safari</strong>.</li>
-<li>Go to: https://claude.ai/artifact/SgmXCoVBR1j5B8Nky5Wpwq</li>
-<li>Enter the Class ID, pick your roster and rubric CSVs, tap <strong>Load files</strong>.</li>
-</ol>
-<p>That's it. The CSVs are picked on your phone and never leave the browser — same privacy as on a computer, nothing shared with anyone else grading from the same link.</p>
-<p>Optional: tap Safari's Share icon → <strong>Add to Home Screen</strong>, so it opens like an app with no address bar.</p>
-<p><strong>Do not download <code>index.html</code> or the CSVs onto the phone</strong> (not via Drive, OneDrive, Email, or AirDrop). A downloaded copy is just a local file, and iOS can silently fail to run it — the page looks fine but no button does anything.</p>
-<p><strong>Rotating to landscape</strong>: if the grading table feels cramped, turn the phone sideways. If it won't rotate, iOS's rotation lock is probably on: Settings → Control Center → <strong>Customize Controls</strong> → add <strong>Rotation Lock</strong> (also labeled <strong>Portrait Orientation Lock</strong>) → swipe down from the top-right corner and tap that icon off.</p>
-<h3>Mobile / iPhone layout</h3>
-<p>The grading screen is optimized for narrow phone screens:
-- presentation groups are always listed one per row (this is true on desktop too, to keep the list easy to scan);
-- rubric headings show <code>FirstWord (max)</code>;
-- score-entry columns use fixed, compact widths so all rubric columns stay visible without horizontal scrolling;
-- other wide tables (Students, Groups, Rubrics) scroll horizontally instead of squeezing their columns unreadably thin;
-- validation messages appear in their own row below the grading table (never squeezed beside it), and name the specific student and rubric item, plus whether the problem is the data type (not a whole number) or the value being out of the rubric's 0–max range — e.g. "Ball, Jessie — Analysis: out of range (must be 0–5)."</p>
-<h2>Maintaining the phone link (not needed to grade presentations)</h2>
-<p>Everyone grading presentations only needs the "iPhone / mobile use" section above. This part is only for whoever keeps that link working.</p>
-<p>The phone link is a separate published copy of <code>index.html</code>, not this folder's file. Editing <code>index.html</code> here does not update it — ask Claude to republish it with the latest version after making changes.</p>
-<p><strong>Alternative: host it yourself with GitHub Pages</strong> — free, and not dependent on asking anyone to republish anything.</p>
-<p>Uploading <code>index.html</code> to a GitHub repo is not enough by itself: clicking the file there only shows its source code, and downloading it has the same broken-on-iPhone problem as any other download. GitHub Pages has to be turned on separately:</p>
+</li>
+<li><strong>Exported CSV:</strong> a normal browser download, saved wherever your browser puts downloads (usually <code>Downloads</code>). To choose the folder each time, turn on "Ask where to save each file" (Chrome/Edge: Settings → Downloads).</li>
+</ul>
+<h2>Export format</h2>
+<ul>
+<li>Columns: <code>canvas_user_id</code>, student name, group name, then one column per rubric item.</li>
+<li>Group items are labelled <code>(group)</code> in the header, and each member's row repeats their group's score, so every student row is complete on its own.</li>
+</ul>
+<h2>Privacy</h2>
+<p>Student data and grades are processed only in the browser. Even when the app is opened from the online link, the CSVs you pick and the scores you enter are never sent to GitHub or any other server.</p>
+<h2>Phone screens</h2>
+<p>The grading screen is designed for narrow phone screens:</p>
+<ul>
+<li>groups are listed one per row (on desktop too, to keep the list easy to scan);</li>
+<li>rubric headings show <code>FirstWord (max)</code>;</li>
+<li>score columns use compact widths so all rubric columns fit without sideways scrolling;</li>
+<li>other wide tables (Students, Groups, Rubrics) scroll sideways instead of squeezing their columns;</li>
+<li>error messages appear below the grading table and name the student and rubric item — e.g. "[Individual tab] Ball, Jessie: Speaking (4) - enter between 0–4".</li>
+</ul>
+<h2>Keeping the online version up to date (maintainer only)</h2>
+<p>Graders don't need this section.</p>
+<ul>
+<li>The online link is served by GitHub Pages from the <code>index.html</code> in the GitHub repo. Editing <code>index.html</code> in this folder does <strong>not</strong> change the online version. Upload/push the new <code>index.html</code> to the repo, and the link updates within a minute or two.</li>
+<li>Anyone using a copy you sent them keeps the old version until you send them the new file.</li>
+</ul>
+<p>If GitHub Pages ever needs to be turned on again (for this repo or a new one):</p>
 <ol>
 <li>In the repo, click <strong>Settings</strong>.</li>
 <li>Left sidebar → <strong>Pages</strong>.</li>
 <li>Under "Build and deployment" → Source: <strong>Deploy from a branch</strong>.</li>
 <li>Branch: <strong>main</strong>, folder: <strong>/ (root)</strong> → <strong>Save</strong>.</li>
-<li>Wait about a minute, refresh that Pages screen — it shows the live URL, e.g. <code>https://gchang1020.github.io/ggrader/</code>.</li>
+<li>Wait about a minute and refresh the Pages screen; it shows the live URL (currently <code>https://youstem.github.io/ggrade/</code>).</li>
 </ol>
-<p>Share only that URL with faculty — never the repo page itself, and never a downloaded copy of the file.</p>
+<p>Share that URL — not the repo page, which only shows the source code.</p>
