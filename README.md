@@ -140,9 +140,14 @@ GitHub doesn't accept the account password for `git push`. If `git push` asks fo
     - Repository access: **Only select repositories** → `youstem/ggrade`
     - Permissions → Repository permissions → **Contents: Read and write**
 3. Click **Generate token** and copy it. GitHub shows it only once.
-4. Run `git push`. At `Password for 'https://youstem@github.com':`, right-click to paste the token and press Enter. Nothing appears as you paste; that's normal.
+4. So Git remembers the token (only needed once per computer), run:
+    - `git config --global credential.helper manager`
+    - Check it with `git config --global credential.helper` — it should print `manager`.
+5. Run `git push`. At `Password for 'https://youstem@github.com':`, right-click to paste the token and press Enter. Nothing appears as you paste; that's normal.
 
-When the token expires, `git push` fails the same way again: generate a new token and repeat.
+After that, `git push` works without asking for anything — Git keeps the token in Windows Credential Manager.
+
+When the token expires, `git push` fails the same way again: generate a new token (steps 1–3) and paste it once at the next `git push` (step 5).
 
 If GitHub Pages ever needs to be turned on again (for this repo or a new one):
 
