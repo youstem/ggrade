@@ -100,6 +100,7 @@ Only one of them writes anything:
     - Scores stay in **that browser on that device**. They won't appear in a different browser, on a different computer or phone, or — on the same computer — between the online link and a downloaded copy of `index.html`. Pick one way to open the app and stick with it for a grading round.
     - If you reuse the exact same roster + rubric files for a new grading round (e.g. finals), **Load files** asks you to choose **Same score sheet** or **New score sheet** (step 5) instead of guessing.
 - **Exported CSV:** a normal browser download, saved wherever your browser puts downloads (usually `Downloads`). To choose the folder each time, turn on "Ask where to save each file" (Chrome/Edge: Settings → Downloads).
+- **Loss of scores:** Scores are saved to browser's localStorage by the key of `presentationGraderState:<roster hash>-<rubric hash>`, and the key has no date in it, so each save overwrites the previous one for that roster + rubric pair. This means a changed name or a rubric with even one character changed makes the old scores no longer show up for the edited file; Another way to lose saved scores is to choose **New score sheet** and click **Continue**.
 
 ## Export format
 

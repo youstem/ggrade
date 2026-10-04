@@ -108,6 +108,7 @@
 </ul>
 </li>
 <li><strong>Exported CSV:</strong> a normal browser download, saved wherever your browser puts downloads (usually <code>Downloads</code>). To choose the folder each time, turn on "Ask where to save each file" (Chrome/Edge: Settings → Downloads).</li>
+<li><strong>Loss of scores:</strong> Scores are saved to browser's localStorage by the key of <code>presentationGraderState:&lt;roster hash&gt;-&lt;rubric hash&gt;</code>, and the key has no date in it, so each save overwrites the previous one for that roster + rubric pair. This means a changed name or a rubric with even one character changed makes the old scores no longer show up for the edited file; Another way to lose saved scores is to choose <strong>New score sheet</strong> and click <strong>Continue</strong>.</li>
 </ul>
 <h2>Export format</h2>
 <ul>
